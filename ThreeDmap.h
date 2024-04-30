@@ -20,7 +20,7 @@ struct Resolution
 	enum Level
 	{
 		Invalid = -1,
-		//ANCHOR = 0,
+		ANCHOR = 0,
 		HIGH = 1,
 		MID = 2,
 		LOW = 3
