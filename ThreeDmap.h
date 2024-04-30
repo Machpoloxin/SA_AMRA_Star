@@ -15,7 +15,6 @@ std::string extractFileName(const std::string& path)
     return p.stem().string(); 
 }
 
-
 struct Resolution
 {
 	enum Level
@@ -98,9 +97,25 @@ private:
     
 
 public:
-    ThreeDMap(int sizeX, int sizeY, int sizeZ, int resolutionScale) : sizeX(sizeX), sizeY(sizeY), sizeZ(sizeZ), resolutionScale(resolutionScale)\
-                                                                    ,minX(0),minY(0),minZ(0),maxX(sizeX - 1),maxY(sizeY - 1),maxZ(sizeZ - 1)
+    ThreeDMap(int sizeX, int sizeY, int sizeZ, int resolutionScale) : sizeX(sizeX), sizeY(sizeY), sizeZ(sizeZ), resolutionScale(resolutionScale)
     {
+        maxX = std::numeric_limits<int>::min();
+        maxY = std::numeric_limits<int>::min();
+        maxZ = std::numeric_limits<int>::min();
+        minX = std::numeric_limits<int>::max();
+        minY = std::numeric_limits<int>::max();
+        minZ = std::numeric_limits<int>::max();
+        std::srand(std::time(nullptr)); // random seed
+    }
+
+    ThreeDMap() : sizeX(0), sizeY(0), sizeZ(0), resolutionScale(1) // for path
+    {
+        maxX = std::numeric_limits<int>::min();
+        maxY = std::numeric_limits<int>::min();
+        maxZ = std::numeric_limits<int>::min();
+        minX = std::numeric_limits<int>::max();
+        minY = std::numeric_limits<int>::max();
+        minZ = std::numeric_limits<int>::max();
         std::srand(std::time(nullptr)); // random seed
     }
 
@@ -122,6 +137,17 @@ public:
                 }
             }
         }
+        maxX = sizeX -1;
+        maxY = sizeY -1;
+        maxZ = sizeZ -1;
+        minX = 0;
+        minY = 0;
+        minZ = 0;
+    }
+
+    std::string getMapName()
+    {
+        return mapName; 
     }
 
     std::string getMapValue(int x, int y, int z) 
@@ -154,8 +180,31 @@ public:
 
     void setMapValue(int x, int y, int z, const std::string& value)
     {
+        bool withinBounds = checkBoundary(x,y,z);
+        if (withinBounds)
+        {
+            std::string key = generateKey(x, y, z);
+            map[key] = value;
+        }
+        else
+        {
+            std::cerr <<"Out of boundary!!!"<<std::endl;
+        }
+    }
+
+    void addPath(int x, int y, int z, const std::string& value)
+    {
         std::string key = generateKey(x, y, z);
         map[key] = value;
+        maxX = std::max(maxX, x);
+        maxY = std::max(maxY, y);
+        maxZ = std::max(maxZ, z);
+        minX = std::min(minX, x);
+        minY = std::min(minY, y);
+        minZ = std::min(minZ, z);
+        sizeX = maxX - minX + 1;
+        sizeY = maxY - minY + 1;
+        sizeZ = maxZ - minZ + 1;
     }
 
     void removeMapValue(int x, int y, int z) 
@@ -178,6 +227,27 @@ public:
         }
         //z
         if (position[2] < minZ || position[2] > maxZ) 
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool checkBoundary(const int & x, const int & y, const int & z)
+    {
+        //x
+        if (x < minX || x > maxX) 
+        {
+            return false;
+        }
+        //y
+        if (y < minY || y > maxY) 
+        {
+            return false;
+        }
+        //z
+        if (z< minZ || z > maxZ) 
         {
             return false;
         }
@@ -300,4 +370,3 @@ public:
         file.close();
     }
 };
-
