@@ -4,7 +4,7 @@
 #include <cmath>
 #include <unordered_map>
 #include "ThreeDmap.h"
-#include "HeuristicManger.h"
+#include "HeuristicManager.h"
 #include <array>
 #include <set>
 
@@ -38,15 +38,23 @@ private:
     HeuristicManager manager;
     int weight1;
     int weight2;
+    std::vector<std::pair<Resolution::Level, int>> heurs_map;
 
     void addToOpenList(int heuristicIndex, const Node& node) {
         openLists[heuristicIndex].insert(node);
     }
 
-    bool isInCloseList(const Node& node) const 
+    void removeFromOpenList(int heuristicIndex, const Node& node) 
     {
-        return std::find_if(closeList.begin(), closeList.end(),
-                            [node](const Node& n) { return n.position == node.position && n.res == node.res; }) != closeList.end();
+        openLists[heuristicIndex].erase(node);
+    }
+
+    void clearAllOpen() 
+    {
+        for (auto& openList : openLists) 
+        {
+            openList.clear();
+        }
     }
 
     void addToCloseList(const Node& node, Resolution::Level res) 
@@ -62,16 +70,35 @@ private:
                         [node](const Node& n) { return n.position == node.position && n.res == node.res; }) != list.end();}
     }
 
-    void removeFromOpenList(int heuristicIndex, const Node& node) {
-        openLists[heuristicIndex].erase(node);
+    void clearAllClose() 
+    {
+        for (auto& list : closeList) 
+        {
+            list.clear();
+        }
     }
+
+    void addToINCONS(const Node& node) 
+    {
+        INCONS.push_back(node);
+    }
+
+    void clearINCONS() 
+    {
+        INCONS.clear();
+    }
+
+
 
 public:
     AMRAstar(int initWeight1, int initWeight2, std::string path, std::array<int,3> taskStart, std::array<int,3> taskGoal, int resolutionScale): grid(path, resolutionScale),weight1(initWeight1),weight2(initWeight2)
     {
-        
+
+        //heurs_map.emplace_back(Resolution::ANCHOR, 0);//CAN CHANGE, 0: Heuristic Index!!!
         manager.registerHeuristic("Euclidean", std::make_unique<EuclideanDistance>());
+        heurs_map.emplace_back(Resolution::HIGH, manager.countHeuristics()-1);//CAN CHANGE
         manager.registerHeuristic("Manhattan", std::make_unique<ManhattanDistance>());
+        heurs_map.emplace_back(Resolution::MID, manager.countHeuristics()-1);
 
         for (size_t i = 0; i < manager.countHeuristics(); ++i) {
             openLists.emplace_back();
@@ -81,54 +108,78 @@ public:
         goal = {taskGoal, Resolution::HIGH, manager.getHeuristic("Euclidean")->calculate(taskStart, taskGoal), 0, nullptr};
     }
 
-    double key(Node* node,int i)
+    double key(const Node& node, int i)
     {
         const Heuristic* heuristic = manager.getHeuristicByIndex(i);
-        return node->g_cost +  weight1*heuristic->calculate(node->position, goal.position);
+        return node.g_cost +  weight1*heuristic->calculate(node.position, goal.position);
     }
     
-    void expand(Node* node, Resolution::Level res) 
+    void expand(Node* node, int heuristicIndex) 
     {
+        Resolution::Level res = heurs_map.at(heuristicIndex).first;
         // 获取后继节点
         auto successors = grid.getSuccs(node->position, res);
 
+
         // 遍历每个后继节点，根据所有启发式更新
-        for (auto& successorPosition : successors) {
+        for (auto& successorPosition : successors) 
+        {
             Node successor;
-            successor.position = successorPosition;
+            successor.position = successorPosition.first;
             successor.res = node->res;
-            successor.parent = node;
+            successor.g_cost = decodeGvalue(successorPosition.second);
 
-            for (size_t i = 0; i < manager.countHeuristics(); ++i) {
-                const Heuristic* heuristic = manager.getHeuristicByIndex(i);
-                double g_cost_new = node->g_cost + heuristic->calculate(node->position, successorPosition);
-                double h_cost_new = heuristic->calculate(successorPosition, goal.position);
-
-                successor.g_cost = g_cost_new;
-                successor.h_cost = h_cost_new;
-
+            for (size_t i = 0; i < manager.countHeuristics(); ++i) 
+            {
                 auto& openList = openLists[i];
-                auto it = openList.find(successor);
-                if (it == openList.end() && !isInCloseList(successor)) {
-                    addToOpenList(i, successor);
-                } else if (it != openList.end() && g_cost_new < it->g_cost) {
-                    removeFromOpenList(i, *it);
-                    addToOpenList(i, successor);
+                auto currentNode = openList.find(*node);
+                if (i!=heuristicIndex && currentNode!= openList.end() && heurs_map.at(i).first == res)
+                {
+                    removeFromOpenList(i,*node);
+                }
+                const Heuristic* heuristic = manager.getHeuristicByIndex(i);
+                double g_cost_new = node->g_cost + heuristic->calculate(node->position, successorPosition.first);
+
+                if (successor.g_cost > g_cost_new)
+                {  
+                    successor.g_cost = g_cost_new; 
+                    successor.parent = node;
+                    double h_cost_new = heuristic->calculate(successorPosition.first, goal.position);
+                    successor.h_cost = h_cost_new;
+                    if (isInCloseList(successor,Resolution::ANCHOR))
+                    {
+                        addToINCONS(successor);
+                    }
+                    else
+                    {
+                    auto& openList = openLists[i];
+                    auto it = openList.find(successor);
+                    if (it == openList.end() && !isInCloseList(successor,res)) 
+                    {
+                        addToOpenList(i, successor);
+                    }   
+                    else if (it != openList.end() && (key(*it,i) <= weight2* key(*it,0)) )
+                    {
+                        removeFromOpenList(i, *it);
+                        addToOpenList(i, successor);
+                    }
+                
+                    }
                 }
             }
+
+            addToCloseList(*node,res);
         }
 
-        addToCloseList(*node,res);
+
+
     }
-
-
 
 };
 
 
-
-
-int main() {
+int main() 
+{
 
 
     return 0;

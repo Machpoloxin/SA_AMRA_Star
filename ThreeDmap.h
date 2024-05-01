@@ -27,6 +27,12 @@ struct Resolution
 	};
 };
 
+double decodeGvalue(std::string valueSymbol)
+{
+    return 0;
+};
+
+
 
 
 class ThreeDMap 
@@ -264,7 +270,7 @@ public:
 
     }
 
-    std::vector<std::array<int,3>> getSuccs(const std::array<int,3> & position, Resolution::Level res)
+    std::vector<std::pair<std::array<int,3>,std::string>> getSuccs(const std::array<int,3> & position, Resolution::Level res)
     {
         if (res == Resolution::Invalid)
         {
@@ -272,7 +278,7 @@ public:
             return {};
         }
         int resFactor = resolutionScale * res;  
-        std::vector<std::array<int, 3>> expandableNodes;
+        std::vector<std::pair<std::array<int, 3>,std::string>> expandableNodes;
         std::array<int, 3> map_size = {sizeX, sizeY, sizeZ};
         std::array<int, 3> directions = {{resFactor*0, resFactor*(-1), resFactor*(1)}};  // Only two directions, -1 and 1, for each dimension.
 
@@ -291,10 +297,11 @@ public:
                     if (skip) continue; 
 
                     bool withinBounds = checkBoundary(neighbor);
+                    std::string value = getMapValue(neighbor);
 
-                    if (getMapValue(neighbor) != "ob"&& withinBounds) 
+                    if (value != "ob"&& withinBounds) 
                     {
-                        expandableNodes.push_back(neighbor);
+                        expandableNodes.emplace_back(neighbor,value);
                     }
                 }
             }
@@ -304,9 +311,9 @@ public:
     }
     
     
-    std::vector<std::array<int,3>> getSuccs(const std::array<int,3> & position)
+    std::vector<std::pair<std::array<int,3>,std::string>> getSuccs(const std::array<int,3> & position)
     {
-        std::vector<std::array<int, 3>> expandableNodes;
+        std::vector<std::pair<std::array<int, 3>,std::string>> expandableNodes;
         std::array<int, 3> map_size = {sizeX, sizeY, sizeZ};
         std::array<int, 3> directions = {{0, -1, 1}};  // Only two directions, -1 and 1, for each dimension.
 
@@ -325,10 +332,11 @@ public:
                     if (map_size[2] != 0) neighbor[2] += z; else if (z != 0) skip = true;
                     if (skip) continue; 
                     bool withinBounds = checkBoundary(neighbor);
+                    std::string value = getMapValue(neighbor);
 
-                    if (getMapValue(neighbor) != "ob"&& withinBounds) // Not expand obstcale, can add safty check !!!
+                    if (value != "ob"&& withinBounds) // Not expand obstcale, can add safty check !!!
                     {
-                        expandableNodes.push_back(neighbor);
+                        expandableNodes.emplace_back(neighbor,value);
                     }
                 }
             }
