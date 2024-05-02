@@ -33,8 +33,6 @@ double decodeGvalue(std::string valueSymbol)
 };
 
 
-
-
 class ThreeDMap 
 {
 private:
@@ -345,11 +343,11 @@ public:
     return expandableNodes;
     }
     
-    void printNodes(const std::vector<std::array<int, 3>>& nodes) 
+    void printNodes(const std::vector<std::pair<std::array<int,3>,std::string>>& nodes) 
     {
         for (const auto& node : nodes)
         {
-            std::cout << "(" << node[0] << ", " << node[1] << ", " << node[2] << ")" << std::endl;
+            std::cout << "(" << node.first[0] << ", " << node.first[1] << ", " << node.first[2] << ")" << std::endl;
         }
     }
 
