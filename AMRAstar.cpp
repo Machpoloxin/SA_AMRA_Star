@@ -271,7 +271,7 @@ int main()
     testNode.parent = nullptr;
     //std::cout<<"point1"<<std::endl;
     // Simulate expansion
-    amraStar.expand(&testNode, 0);  // Use the first heuristic for simplicity
+    amraStar.expand(&testNode, 0);  // Use the first heuristic
 
     // Output results
     std::cout << "Explored nodes after expansion:" << std::endl;
