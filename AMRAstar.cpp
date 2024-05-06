@@ -111,10 +111,10 @@ private:
         auto& openList = openLists[heuristicIndex];
         for (const auto& node : openList) {
             if (node.position == position) {
-                return const_cast<Node*>(&node); // 小心使用 const_cast，仅当你确实需要修改元素时使用
+                return const_cast<Node*>(&node);
             }
         }
-        return nullptr; // 如果未找到，则返回 nullptr
+        return nullptr; 
     }
 
     void removeFromOpenListByPosition(int heuristicIndex, const std::array<int, 3>& position) 
@@ -217,7 +217,7 @@ public:
         double taskStartHvalue = manager.getHeuristic("Euclidean")->calculate(taskStart, taskGoal);
 
         start = {taskStart, Resolution::HIGH, 0, taskStartHvalue,0 + weight1 * taskStartHvalue, nullptr};
-        goal = {taskGoal, Resolution::HIGH, taskGoalGvalue, 0, taskGoalGvalue + 0  , nullptr};
+        goal = {taskGoal, Resolution::HIGH, taskStartHvalue , 0, taskStartHvalue  + 0  , nullptr};
         weight1Step = 0.1 * weight1;
         weight2step = 0.1 * weight2;
 
@@ -311,7 +311,7 @@ public:
 
     }
 
-
+    /*
     bool improvePath(const double& startTime)
     {
         std::cout<<"count"<<std::endl;
@@ -342,7 +342,7 @@ public:
                     checkImprove = true;
                     return true;
                 }
-                removeFromOpenListByPosition(i, x.position);
+                openLists[i].erase(openLists[i].begin());
                 std::cout << "Before_Opensize: " <<openLists[i].size() << std::endl;
                 expand(&x,i);
                 std::cout << "After_Opensize: " <<openLists[i].size() << std::endl;
@@ -355,6 +355,61 @@ public:
         }
         return checkImprove;
     }
+    */
+
+    bool improvePath(const double& startTime)
+    {
+        while (!openLists[0].empty())
+        {
+            //printOPEN(0);
+            double elapsedTime = getTime() - startTime; 
+            if (elapsedTime > timeLimit)
+            {
+                return false; 
+            }
+            for (int i = 0; i < manager.countHeuristics(); ++i) 
+            {
+                if (openLists[0].empty())
+                {
+                    return false;
+                }
+                double fCheck = weight2 * openLists[0].begin()->f_cost;
+                //if (goal.g_cost <= fCheck)
+                //{
+                //    std::cout<<"Cost of Goal: "<<goal.g_cost<<','<< "Cost of fcheck2: "<<fCheck<<std::endl;
+                //    return true;
+                //}
+
+                if (!openLists[i].empty() &&
+                        openLists[i].begin()->f_cost <= fCheck)
+                {
+                    Node x = *openLists[i].begin();
+                    openLists[i].erase(openLists[i].begin());
+                    if(x.position == goal.position)
+                    {
+                        reconstructPath(x);
+                        return true;
+                    }
+                    printOPEN(i);
+                    expand(&x,i);
+                }
+                else
+                {
+                    Node x = *openLists[i].begin();
+                    openLists[i].erase(openLists[i].begin());
+                    if(x.position == goal.position)
+                    {
+                        reconstructPath(x);
+                        return true;
+                    }
+                    expand(&x,0);
+                }
+            }
+        }
+    }
+
+
+
 
     void reconstructPath(Node& node) {
         solutionPath.clear();
@@ -401,6 +456,7 @@ public:
             weight2 = weight2 - weight2step; 
 
         }
+
     }
 
 };
