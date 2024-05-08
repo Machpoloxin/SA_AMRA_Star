@@ -41,10 +41,6 @@ struct Node
         return position == other.position;}
 };
 
-//using Grid = std::vector<std::vector<Node*>>;
-
-
-
 
 class AMRAstar 
 {
@@ -66,7 +62,7 @@ private:
     double searchTime;
     double timeLimit; //ms
 
-    int findNodePosition(const Node& node) {
+    int findNodePosition(const Node& node) {//only for explored
         auto it = std::find(Explored.begin(), Explored.end(), node);
         if (it != Explored.end()) {
         // Calculate the index
@@ -90,7 +86,7 @@ private:
         openLists[heuristicIndex].erase(node);
     }
 
-
+    /*
     void updateOpenList(int heuristicIndex, const Node& node)
     {
         auto& openList = openLists[heuristicIndex];
@@ -100,11 +96,19 @@ private:
             addToOpenList(heuristicIndex, node);
         }   
         else
-        {
-            removeFromOpenList(heuristicIndex, *it);
-            addToOpenList(heuristicIndex, node);
+        { 
+            if (it->f_cost>node.f_cost)
+            {
+                removeFromOpenList(heuristicIndex, *it);
+                addToOpenList(heuristicIndex, node);
+            }
+            else
+            {
+                return;
+            }
         }
-    }
+
+    }*/
     
     Node* findNodeByPosition(const std::vector<std::set<Node>>& openLists, int heuristicIndex, const std::array<int, 3>& position) 
     {
@@ -125,11 +129,20 @@ private:
         }   
     }
 
-    void printOPEN( int heuristicIndex)
+
+    void updateOpenList(int heuristicIndex, const Node& node)
     {
-        for (auto const& opens: openLists[heuristicIndex])
+        Node* it = findNodeByPosition(openLists,heuristicIndex,node.position);
+        if (it!=nullptr)
         {
-           std::cout << '(' << opens.position[0] << ',' << opens.position[1] << ',' <<opens.position[2]<< ',' << opens.h_cost << ')' <<std::endl;
+            if (it->f_cost > node.f_cost){
+            removeFromOpenListByPosition(heuristicIndex,node.position);
+            addToOpenList(heuristicIndex,node);
+            }
+        }
+        else
+        {
+            addToOpenList(heuristicIndex,node);
         }
     }
 
@@ -155,14 +168,21 @@ private:
 
     void addToCloseList(const Node& node, Resolution::Level res) 
     {
-        if (res!=Resolution::Invalid){closeList[res].push_back(node);}
+
+        if (res!=Resolution::Invalid)
+        {
+            int resLevel = static_cast<int> (res);
+            //std::cout << "resLevel: "<<resLevel<<std::endl;
+            closeList[resLevel].push_back(node);
+        }
     }
 
     bool isInCloseList(const Node& node, Resolution::Level res) const 
     {
         if (res!=Resolution::Invalid){
-        const auto& list = closeList[res];
-        return std::find_if(list.begin(), list.end(),
+            int resLevel = static_cast<int>(res);
+            const auto& list = closeList[resLevel];
+            return std::find_if(list.begin(), list.end(),
                         [node](const Node& n) { return n.position == node.position && n.res == node.res; }) != list.end();}
         else{return false;}
     }
@@ -229,7 +249,46 @@ public:
         return node.g_cost +  weight1*heuristic->calculate(node.position, goal.position);
     }
     
-   
+
+
+    void printOPEN( int heuristicIndex) {
+        //std::cout<<"begin";
+        if (heuristicIndex < openLists.size()) {
+            for (auto const& node : openLists[heuristicIndex]) {
+                std::cout << '(' << node.position[0] << ',' << node.position[1] << ',' << node.position[2] << ',' << node.f_cost << ')' << ';';
+
+                if (node.parent) {  // 检查parent是否为空
+                    std::cout << "Parent: (" << node.parent->position[0] << ',' << node.parent->position[1] << ',' << node.parent->position[2] << ')';
+                } else {
+                    std::cout << "Parent: (null)";
+                }
+                std::cout << std::endl;
+            }
+        } else {
+            std::cout << "Invalid heuristic index." << std::endl;
+        }
+    }
+
+     void printClose(Resolution::Level res)
+    {
+        int resLevel = static_cast<int> (res);
+        //std::cout<< "close:"<<std::endl;
+        //std::cout << resLevel<<std::endl;
+        if (resLevel < closeList.size()) {
+        for (auto const& node : closeList[resLevel]) {
+                std::cout << '(' << node.position[0] << ',' << node.position[1] << ',' << node.position[2] << ',' << node.f_cost << ')' << ';';
+
+                if (node.parent) {  // 检查parent是否为空
+                    std::cout << "Parent: (" << node.parent->position[0] << ',' << node.parent->position[1] << ',' << node.parent->position[2] << ')';
+                } else {
+                    std::cout << "Parent: (null)";
+                }
+                std::cout << std::endl;
+            }
+        } else {
+            std::cout << "Invalid heuristic index." << std::endl;
+        }
+    }
 
     void expand(Node* node, int heuristicIndex) 
     {
@@ -239,15 +298,11 @@ public:
         //std::cout<< res<<std::endl;
         if (node->position==goal.position)
         {
-            successors.push_back({node->position, grid.getMapValue(node->position)});
-        }
-        else
-        {
-            successors = grid.getSuccs(node->position, res);
+            return;
         }
         
-        //grid.printNodes(successors);
-        //grid.printBoundary();
+        successors = grid.getSuccs(node->position, res);
+        
 
         for (auto& successorPosition : successors) 
         {
@@ -258,6 +313,7 @@ public:
             if (iter!=-1)
             {
                 successor.g_cost = Explored.at(iter).g_cost;
+                //successor = Explored.at(iter);
             }
             else
             {
@@ -271,7 +327,7 @@ public:
                 successor.parent = node;
                 double h_cost_new = heuristic->calculate(successorPosition.first, goal.position);
                 successor.h_cost = h_cost_new;
-                successor.f_cost = key(successor, 0);// 0 anchor heuristic
+                successor.f_cost = successor.g_cost + weight1*successor.h_cost ;// 0 anchor heuristic
                 addNodeToExplored(successor);
                
                 if (isInCloseList(successor, Resolution::ANCHOR))
@@ -303,15 +359,12 @@ public:
                 }
 
             }
-
            
         }
 
-
-
     }
 
-    /*
+    
     bool improvePath(const double& startTime)
     {
         std::cout<<"count"<<std::endl;
@@ -333,16 +386,26 @@ public:
                 {
                     i = 0;
                 }
-                Node x = *openLists[i].begin();
+                Node x;
+                x.parent =nullptr;
+                if (!openLists[i].empty()) 
+                {
+                    x = *openLists[i].begin();  // 安全地获取第一个元素的地址
+                }
                 std::cout << "x_now: "<< '(' << x.position[0] << ',' << x.position[1] << ',' <<x.position[2]<< ',' << x.h_cost << ')' <<std::endl;
                 if (x.position == goal.position){
                     std::cout << "beginToreconstruct"<<std::endl;
                     std::cout << "x_parent: "<< '(' << x.parent->position[0] << ',' << x.parent->position[1] << ',' <<x.parent->position[2]<< ')' <<std::endl;
                     //reconstructPath(x);
+                    printClose(Resolution::HIGH);
                     checkImprove = true;
                     return true;
                 }
+                std::cout<<"before pop:"<<std::endl;
+                printOPEN(i);
                 openLists[i].erase(openLists[i].begin());
+                std::cout<<"after pop:"<<std::endl;
+                printOPEN(i);
                 std::cout << "Before_Opensize: " <<openLists[i].size() << std::endl;
                 expand(&x,i);
                 std::cout << "After_Opensize: " <<openLists[i].size() << std::endl;
@@ -350,73 +413,27 @@ public:
                 printOPEN(i);
                 Resolution::Level res = heurs_map.at(i).first;
                 addToCloseList(x, res);
+                std::cout << "close" << static_cast<int>(res) << ':'<< std::endl;
+                printClose(res);
+                std::cout<<'\n';
 
             }
         }
         return checkImprove;
     }
-    */
-
-    bool improvePath(const double& startTime)
-    {
-        while (!openLists[0].empty())
-        {
-            //printOPEN(0);
-            double elapsedTime = getTime() - startTime; 
-            if (elapsedTime > timeLimit)
-            {
-                return false; 
-            }
-            for (int i = 0; i < manager.countHeuristics(); ++i) 
-            {
-                if (openLists[0].empty())
-                {
-                    return false;
-                }
-                double fCheck = weight2 * openLists[0].begin()->f_cost;
-                //if (goal.g_cost <= fCheck)
-                //{
-                //    std::cout<<"Cost of Goal: "<<goal.g_cost<<','<< "Cost of fcheck2: "<<fCheck<<std::endl;
-                //    return true;
-                //}
-
-                if (!openLists[i].empty() &&
-                        openLists[i].begin()->f_cost <= fCheck)
-                {
-                    Node x = *openLists[i].begin();
-                    openLists[i].erase(openLists[i].begin());
-                    if(x.position == goal.position)
-                    {
-                        reconstructPath(x);
-                        return true;
-                    }
-                    printOPEN(i);
-                    expand(&x,i);
-                }
-                else
-                {
-                    Node x = *openLists[i].begin();
-                    openLists[i].erase(openLists[i].begin());
-                    if(x.position == goal.position)
-                    {
-                        reconstructPath(x);
-                        return true;
-                    }
-                    expand(&x,0);
-                }
-            }
-        }
-    }
-
-
-
+    
+  
 
     void reconstructPath(Node& node) {
-        solutionPath.clear();
-        for (Node* current = &node; current != nullptr; current = current->parent) {
-            solutionPath.push_back(*current);
-        }
-        std::reverse(solutionPath.begin(), solutionPath.end());
+        int pos = findNodePosition(node);
+        std::cout<<"position in explored: " <<pos<<std::endl;
+        Node theNode = Explored[pos];
+        std::cout <<"Parent in explored: "<< theNode.parent->position[0] << ',' << theNode.parent->position[1] << ',' <<theNode.parent->position[2]<<')'<<std::endl;
+        //solutionPath.clear();
+       // for (Node* current = &theNode; current != nullptr; current = current->parent) {
+       //     solutionPath.push_back(*current);
+        //}
+        //std::reverse(solutionPath.begin(), solutionPath.end());
         // Display or process the path
     }
 
@@ -443,8 +460,11 @@ public:
                     }
                 }
             }
+            printClose(Resolution::HIGH);
             clearAllClose();
-            if (improvePath(startTime))
+            bool checkaa = improvePath(startTime);
+            std::cout<< "checkaa: " <<checkaa<<std::endl;
+            if (checkaa)
             {
                 for (const auto &solution: solutionPath)
                 {
@@ -456,6 +476,44 @@ public:
             weight2 = weight2 - weight2step; 
 
         }
+
+    }
+
+    void test()
+    {
+        std::cout<<"iter1"<<std::endl;
+        addToOpenList(0,start);
+        Node aa = *openLists[0].begin();
+        expand(&aa,0);
+        std::cout<<"open:"<<std::endl;
+        printOPEN(0);
+        updateOpenList(0,aa);
+        std::cout<<"open_updated:"<<std::endl;
+        printOPEN(0);
+        addToCloseList(start,Resolution::HIGH);
+        std::cout<<"close:"<<std::endl;
+        printClose(Resolution::HIGH);
+        std::cout<<"iter2:"<<std::endl;
+        Node bb = *openLists[0].begin();
+        expand(&bb,0);
+        addToCloseList(bb,Resolution::HIGH);
+        printOPEN(0);
+        std::cout<<"close:"<<std::endl;
+        printClose(Resolution::HIGH);
+        openLists[0].erase(openLists[0].begin());
+        std::cout<<"open_erased:"<<std::endl;
+        printOPEN(0);
+
+        std::cout<<"iter3:"<<std::endl;
+        Node cc = *openLists[0].begin();
+        expand(&cc,0);
+        addToCloseList(cc,Resolution::HIGH);
+        printOPEN(0);
+        std::cout<<"close:"<<std::endl;
+        printClose(Resolution::HIGH);
+        openLists[0].erase(openLists[0].begin());
+        std::cout<<"open_erased:"<<std::endl;
+        printOPEN(0);
 
     }
 
@@ -475,16 +533,17 @@ int main()
 
     // Initialize AMRAstar algorithm
     AMRAstar amraStar(10, 10, "path_to_map_file", start, goal, 1, 1000);
+    
+    
+    
     /*
-    
-    
     // Node to expand
     Node testNode;
     testNode.position = start;
     testNode.res = Resolution::Level::HIGH;
     testNode.g_cost = 0;
-    testNode.h_cost = 0;
-    testNode.f_cost = 0; // Assuming f_cost is g_cost + h_cost for simplicity
+    testNode.h_cost = 3;
+    testNode.f_cost = 3; // Assuming f_cost is g_cost + h_cost for simplicity
     testNode.parent = nullptr;
 
     // Simulate expansion
@@ -495,9 +554,12 @@ int main()
     for (const auto& node : amraStar.Explored) {
         std::cout << "(" << node.position[0] << ", " << node.position[1] << ", " << node.position[2] << ") g_cost: " << node.g_cost << std::endl;
     }
-    */
+     */
 
+    //amraStar.test();
     amraStar.search();
+  
+    
     
     return 0;
 }
