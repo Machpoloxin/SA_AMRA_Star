@@ -35,7 +35,13 @@ struct Node {
     }
 };
 
-
+struct NodeCompare {
+    bool operator()(const std::shared_ptr<Node>& lhs, const std::shared_ptr<Node>& rhs) const {
+        if (lhs->f_cost < rhs->f_cost) return true;
+        if (rhs->f_cost < lhs->f_cost) return false;
+        return lhs->position < rhs->position;
+    }
+};
 
 
 
@@ -44,7 +50,7 @@ class AMRAstar
 private:
     std::shared_ptr<Node> start, goal;
     ThreeDMap grid;
-    std::vector<std::set<std::shared_ptr<Node>>> openLists;
+    std::vector<std::set<std::shared_ptr<Node>,NodeCompare>> openLists;
     std::vector<std::vector<std::shared_ptr<Node>>> closeList;
     std::vector<std::shared_ptr<Node>> INCONS;
     std::vector<Node> solutionPath;
@@ -80,7 +86,7 @@ private:
     }
 
 
-    std::shared_ptr<Node> findNodeByPosition(const std::vector<std::set<std::shared_ptr<Node>>>& openLists, int heuristicIndex, const std::array<int, 3>& position) {
+    std::shared_ptr<Node> findNodeByPosition(const std::vector<std::set<std::shared_ptr<Node>,NodeCompare>>& openLists, int heuristicIndex, const std::array<int, 3>& position) {
         auto& openList = openLists[heuristicIndex];
         for (const auto& node : openList) {
             if (node->position == position) {
@@ -362,6 +368,7 @@ public:
                 addToCloseList(x, res);
                 std::cout << "After expansion openList size: " << openLists[i].size() << std::endl;
                 std::cout << "open" << i << ':' << std::endl;
+                printOpen(i);
             }
         }
         return checkImprove;
