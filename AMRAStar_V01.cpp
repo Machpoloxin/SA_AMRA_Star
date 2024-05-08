@@ -18,7 +18,7 @@ struct Node {
     std::array<int, 3> position; // x, y, z
     Resolution::Level res;
     double g_cost, h_cost, f_cost;
-    std::shared_ptr<Node> parent; // 使用 shared_ptr 来管理父节点引用
+    std::shared_ptr<Node> parent; 
 
     Node(std::array<int, 3> pos, Resolution::Level resolution, double gCost, double hCost, double fCost, std::shared_ptr<Node> parentNode)
         : position(pos), res(resolution), g_cost(gCost), h_cost(hCost), f_cost(fCost), parent(parentNode) {}
@@ -386,7 +386,7 @@ public:
    void search() {
     startTime = getTime();
     clearAllOpen();
-    addToOpenList(0, start); // Assume start node is already a shared_ptr
+    addToOpenList(0, start); 
 
     while (weight1 >= 1 && weight2 >= 1) {
         std::cout << "weight1: " << weight1 << ", weight2: " << weight2 << std::endl;
@@ -416,7 +416,6 @@ int main()
     std::array<int, 3> goal = {4, 1, 0};
     //std::cout << start[0];
 
-    // Initialize AMRAstar algorithm
     AMRAstar amraStar(10, 10, "path_to_map_file", start, goal, 1, 1000);
     amraStar.search();
 
