@@ -16,22 +16,23 @@
 
 struct Node {
     std::array<int, 3> position; // x, y, z
+    RotationQuaternion orientation;
     Resolution::Level res;
     double g_cost, h_cost, f_cost;
     std::shared_ptr<Node> parent; 
 
-    Node(std::array<int, 3> pos, Resolution::Level resolution, double gCost, double hCost, double fCost, std::shared_ptr<Node> parentNode)
-        : position(pos), res(resolution), g_cost(gCost), h_cost(hCost), f_cost(fCost), parent(parentNode) {}
+    Node(std::array<int, 3> pos, RotationQuaternion ori, Resolution::Level resolution, double gCost, double hCost, double fCost, std::shared_ptr<Node> parentNode)
+        : position(pos), orientation(ori), res(resolution), g_cost(gCost), h_cost(hCost), f_cost(fCost), parent(parentNode) {}
 
 
     bool operator<(const Node& other) const {
         return f_cost < other.f_cost || (f_cost == other.f_cost && position < other.position);
     }
     bool operator==(const Node& other) const {
-        return position == other.position;
+        return (position == other.position)&&(orientation == other.orientation);
     }
     void operator=(const std::shared_ptr<Node> other){
-        position=other->position; res = other->res; g_cost = other->g_cost; h_cost = other->h_cost; f_cost = other->f_cost;
+        position=other->position; orientation == other->orientation; res = other->res; g_cost = other->g_cost; h_cost = other->h_cost; f_cost = other->f_cost;
     }
 };
 
@@ -209,7 +210,7 @@ public:
         heurs_map.emplace_back(Resolution::HIGH, manager.countHeuristics() - 1);
 
         manager.registerHeuristic("Manhattan", std::make_unique<ManhattanDistance>());
-        heurs_map.emplace_back(Resolution::HIGH, manager.countHeuristics() - 1);
+        heurs_map.emplace_back(Resolution::MID, manager.countHeuristics() - 1);
 
         openLists.resize(manager.countHeuristics());
         closeList.resize(4); // anchor,high,mid,low
@@ -464,7 +465,9 @@ public:
 int main() 
 {
     std::array<int, 3> start = {1, 1, 0};
+    std::array<double, 4> start_ori = {0.707, 0.707, 0, 0};
     std::array<int, 3> goal = {4, 1, 0};
+    std::array<double, 4> goal_ori = {0.707, 0, 0.707, 0};
     //std::cout << start[0];
 
     AMRAstar amraStar(10, 10, "path_to_map_file", start, goal, 1, 100);
