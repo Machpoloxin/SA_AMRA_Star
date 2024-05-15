@@ -36,6 +36,17 @@ public:
             w*q.z + x*q.y - y*q.x + z*q.w
         );
     }
+    RotationQuaternion operator*(double scalar) const {
+        return RotationQuaternion(w * scalar, x * scalar, y * scalar, z * scalar);
+    }
+
+    RotationQuaternion operator+(const RotationQuaternion& q) const {
+        return RotationQuaternion(w + q.w, x + q.x, y + q.y, z + q.z);
+    }
+
+    RotationQuaternion operator-(const RotationQuaternion& q) const {
+        return RotationQuaternion(w - q.w, x - q.x, y - q.y, z - q.z);
+    }
 
     // Inverse of the quaternion
     RotationQuaternion inverse() const {
@@ -45,7 +56,34 @@ public:
     // Distance between two quaternions
     static double distance(const RotationQuaternion& q1, const RotationQuaternion& q2) {
         double dot_product = std::fabs(q1.w*q2.w + q1.x*q2.x + q1.y*q2.y + q1.z*q2.z);
+        dot_product = std::clamp(dot_product, -1.0, 1.0);
         return 2 * std::acos(dot_product);
+    }
+
+    static RotationQuaternion slerp(const RotationQuaternion& q1, const RotationQuaternion& q2, double t) {
+        double dot = q1.w*q2.w + q1.x*q2.x + q1.y*q2.y + q1.z*q2.z;
+        const double THRESHOLD = 0.9995;
+
+        if (dot > THRESHOLD) {
+            // Linear interpolation for very close quaternions
+            RotationQuaternion result = RotationQuaternion(
+                q1.w + t * (q2.w - q1.w),
+                q1.x + t * (q2.x - q1.x),
+                q1.y + t * (q2.y - q1.y),
+                q1.z + t * (q2.z - q1.z)
+            );
+            result.normalize();
+            return result;
+        }
+
+        dot = std::clamp(dot, -1.0, 1.0);
+        double theta_0 = std::acos(dot);        // theta_0 is the angle between input quaternions
+        double theta = theta_0 * t;             // theta is the angle between q1 and the result
+
+        RotationQuaternion q3 = q2 - q1 * dot;
+        q3.normalize();
+
+        return q1 * std::cos(theta) + q3 * std::sin(theta);
     }
 
     bool operator==(const RotationQuaternion& q) const {

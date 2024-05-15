@@ -45,7 +45,6 @@ struct NodeCompare {
 };
 
 
-
 class AMRAstar 
 {
 private:
@@ -62,6 +61,7 @@ private:
     int weight1Step;
     int weight2step;
     std::vector<std::pair<Resolution::Level, int>> heurs_map;
+    double totalDistance;
     double startTime;
     double searchTime;
     double timeLimit; //ms
@@ -203,7 +203,10 @@ private:
 
 public:
     //std::vector<Node> Explored;
-    AMRAstar(int initWeight1, int initWeight2, const std::string& path, const std::array<int, 3>& taskStart, const std::array<int, 3>& taskGoal, int resolutionScale, double timeLimit)
+    AMRAstar(int initWeight1, int initWeight2, const std::string& path, 
+        const std::array<int, 3>& taskStart, std::array<double, 4> startOri,
+        const std::array<int, 3>& taskGoal, std::array<double, 4> goalOri,
+        int resolutionScale, double timeLimit)
         : grid(path, resolutionScale), weight1(initWeight1), weight2(initWeight2), timeLimit(timeLimit) {
         
         manager.registerHeuristic("Euclidean", std::make_unique<EuclideanDistance>());
@@ -216,9 +219,9 @@ public:
         closeList.resize(4); // anchor,high,mid,low
 
         //double taskGoalGvalue = decodeGvalue(grid.getMapValue(taskGoal));
-        double taskStartHvalue = manager.getHeuristic("Euclidean")->calculate(taskStart, taskGoal);
-        start = std::make_shared<Node>(Node {taskStart, Resolution::HIGH, 0, taskStartHvalue, weight1*taskStartHvalue, nullptr});
-        goal = std::make_shared<Node>(Node {taskGoal, Resolution::HIGH, taskStartHvalue, 0, taskStartHvalue, nullptr});
+        totalDistance = manager.getHeuristic("Euclidean")->calculate(taskStart, taskGoal);
+        start = std::make_shared<Node>(Node {taskStart,startOri, Resolution::HIGH, 0, totalDistance, weight1*totalDistance, nullptr});
+        goal = std::make_shared<Node>(Node {taskGoal, goalOri, Resolution::HIGH, totalDistance, 0, totalDistance, nullptr});
 
         weight1Step = 0.1 * weight1;
         weight2step = 0.1 * weight2;
@@ -230,6 +233,25 @@ public:
     {
         const Heuristic* heuristic = manager.getHeuristicByIndex(i);
         return node.g_cost +  weight1*heuristic->calculate(node.position, goal->position);
+    }
+
+    RotationQuaternion setOrientation(std::shared_ptr<Node> node, double distanceToGoal)
+    {
+        double ratio = distanceToGoal / totalDistance;
+        double t;
+        if (ratio <= 0.1) {
+            return goal->orientation;
+        } else if (ratio <= 0.3) {
+            t = 0.7;
+        } else if (ratio <= 0.5) {
+            t = 0.5;
+        } else if (ratio <= 0.7){
+            t = 0.3;
+        }else {
+            t = 0.1;
+        }
+        return RotationQuaternion::slerp(node->orientation, goal->orientation, t);
+        
     }
     
 
@@ -273,19 +295,23 @@ public:
         Resolution::Level res = heurs_map.at(heuristicIndex).first;
         std::vector<std::pair<std::array<int, 3>, std::string>> successors;
 
-        if (node->position == goal->position)
+        if (node->position == goal->position && node->orientation == goal->orientation)
             return;
 
         successors = grid.getSuccs(node->position, res);
+        
+
 
         for (const auto& successorPosition : successors) {
-            std::shared_ptr<Node> successor = std::make_shared<Node>(successorPosition.first, node->res, 0.0,0.0,0.0,nullptr);
+            std::shared_ptr<Node> successor = std::make_shared<Node>(successorPosition.first, node->orientation, node->res, 0.0,0.0,0.0,nullptr);
             successor->parent = node;
             const Heuristic* heuristic = manager.getHeuristicByIndex(0);
-            double g_cost_new = node->g_cost + heuristic->calculate(node->position, successorPosition.first);
-            successor->g_cost = g_cost_new;
             double h_cost_new = heuristic->calculate(successorPosition.first, goal->position);
             successor->h_cost = h_cost_new;
+            successor->orientation = setOrientation(node,h_cost_new);
+            double path_cost = heuristic->calculate(node->position, successorPosition.first);
+            double g_cost_new = node->g_cost + path_cost + RotationQuaternion::distance(node->orientation,successor->orientation)*path_cost/3.14;
+            successor->g_cost = g_cost_new;
             successor->f_cost = successor->g_cost + weight1 * successor->h_cost;
 
             if (res == Resolution::ANCHOR)
@@ -358,7 +384,7 @@ public:
                 openLists[i].erase(openLists[i].begin());
 
                 std::cout << "x_now: " << '(' << x->position[0] << ',' << x->position[1] << ',' << x->position[2] << ',' << x->h_cost << ')' << std::endl;
-                if (x->position == goal->position) {
+                if (x->position == goal->position && x->orientation== goal->orientation) {
                     std::cout << "beginToreconstruct" << std::endl;
                     reconstructPath(x);
                     checkImprove = true;
@@ -388,37 +414,10 @@ public:
 
         // Display the path
         for (const auto& step : solutionPath) {
-            std::cout << '(' << step.position[0] << ',' << step.position[1] << ',' << step.position[2] << ')' << std::endl;
+            std::cout << '(' << step.position[0] << ',' << step.position[1] << ',' << step.position[2] << ')';
+            step.orientation.print();
         }
     }
-/*
-   void search() 
-   {
-    startTime = getTime();
-    clearAllOpen();
-    addToOpenList(0, start); 
-
-    while (weight1 >= 1 && weight2 >= 1) {
-        std::cout << "weight1: " << weight1 << ", weight2: " << weight2 << std::endl;
-
-        while (!openLists[0].empty()) {
-            bool checkaa = improvePath(startTime);
-            std::cout << "improvement result: " << checkaa << std::endl;
-            if (checkaa) {
-                std::cout << "Path found!" << std::endl;
-                break;
-            }
-        }
-
-        weight1 -= weight1Step;
-        weight2 -= weight2step;
-        clearAllOpen();
-        clearAllClose();
-        reintegrateINCONSIntoOpenList();
-    }
-    }
-*/
-
 
     void search()
     {
@@ -464,15 +463,15 @@ public:
 
 int main() 
 {
+    
     std::array<int, 3> start = {1, 1, 0};
     std::array<double, 4> start_ori = {0.707, 0.707, 0, 0};
-    std::array<int, 3> goal = {4, 1, 0};
+    std::array<int, 3> goal = {9, 3, 6};
     std::array<double, 4> goal_ori = {0.707, 0, 0.707, 0};
     //std::cout << start[0];
 
-    AMRAstar amraStar(10, 10, "path_to_map_file", start, goal, 1, 100);
+    AMRAstar amraStar(10, 10, "sparsemap.map", start, start_ori, goal, goal_ori, 1, 100);
     amraStar.search();
-
-
-    return 0; 
+    
+    return 0;
 }
