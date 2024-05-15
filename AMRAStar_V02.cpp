@@ -24,6 +24,8 @@ struct Node {
     Node(std::array<int, 3> pos, RotationQuaternion ori, Resolution::Level resolution, double gCost, double hCost, double fCost, std::shared_ptr<Node> parentNode)
         : position(pos), orientation(ori), res(resolution), g_cost(gCost), h_cost(hCost), f_cost(fCost), parent(parentNode) {}
 
+    Node(const Node& other)
+        : position(other.position), orientation(other.orientation), res(other.res), g_cost(other.g_cost), h_cost(other.h_cost), f_cost(other.f_cost), parent(other.parent) {}
 
     bool operator<(const Node& other) const {
         return f_cost < other.f_cost || (f_cost == other.f_cost && position < other.position);
@@ -31,7 +33,7 @@ struct Node {
     bool operator==(const Node& other) const {
         return (position == other.position)&&(orientation == other.orientation);
     }
-    void operator=(const std::shared_ptr<Node> other){
+    void operator=(const std::shared_ptr<Node>& other){
         position=other->position; orientation == other->orientation; res = other->res; g_cost = other->g_cost; h_cost = other->h_cost; f_cost = other->f_cost;
     }
 };
@@ -220,6 +222,7 @@ public:
 
         //double taskGoalGvalue = decodeGvalue(grid.getMapValue(taskGoal));
         totalDistance = manager.getHeuristic("Euclidean")->calculate(taskStart, taskGoal);
+        std::cout<<"Euclidean_start: "<<totalDistance<<std::endl;
         start = std::make_shared<Node>(Node {taskStart,startOri, Resolution::HIGH, 0, totalDistance, weight1*totalDistance, nullptr});
         goal = std::make_shared<Node>(Node {taskGoal, goalOri, Resolution::HIGH, totalDistance, 0, totalDistance, nullptr});
 
@@ -330,31 +333,24 @@ public:
             }
             else
             {
-                for (size_t jj = 1; jj < manager.countHeuristics(); ++jj)
+                updateOpenList(0,successor);          
+                for (size_t j = 1; j < manager.countHeuristics(); ++j) 
                 {
-                    Resolution::Level jres = heurs_map.at(jj).first;
-                    if (jj!=heuristicIndex && jres==res)
+                    std::shared_ptr<Node> nodeCopy = successor;
+                    Resolution::Level lres = heurs_map.at(j).first;
+                    if (lres < nodeCopy->res)
                     {
-                        removeFromOpenList(jj,successor);
+                        continue;
                     }
-                }
-                updateOpenList(0,successor);
-            }
-            for (size_t j = 1; j < manager.countHeuristics(); ++j) 
-            {
-                Resolution::Level lres = heurs_map.at(j).first;
-                if (lres != successor->res)
-                {
-                    continue;
-                }
-                if (!whereInCloseList(successor,lres))
-                {
-                    double newKey = key(*successor, j);
-                    if(newKey <= weight2*successor->f_cost)
+                    if (!whereInCloseList(nodeCopy,lres))
                     {
-                        successor->f_cost = newKey;
-                        //updateOpenList(j,successor);
-                        addToOpenList(j,successor);
+                        double newKey = key(*nodeCopy, j);
+                        if(newKey <= weight2*nodeCopy->f_cost)
+                        {
+                            nodeCopy->f_cost = newKey;
+                            updateOpenList(j,nodeCopy);
+                            //addToOpenList(j,successor);
+                        }
                     }
                 }
             }
@@ -368,22 +364,27 @@ public:
         bool checkImprove = false;
         std::cout << "size of Heuristics" << manager.countHeuristics() << std::endl;
 
-        for (size_t i = 0; i < manager.countHeuristics(); ++i) {
-            while (!openLists[i].empty()) {
-                std::cout << i << std::endl;
+        for (size_t iter = 0; iter < manager.countHeuristics(); ++iter) {
+            while (!openLists[iter].empty()) {
+                int i = iter;
+                std::cout << "iter: " <<iter<< std::endl;
+                if (iter < manager.countHeuristics()){++i;}
+                std::cout << "i: "<< i << std::endl;
                 double elapsedTime = getTime() - startTime;
                 std::cout << "elapsedTime:" << elapsedTime << std::endl;
                 if (elapsedTime >= timeLimit) {
                     return false;
                 }
-                double fCheck = weight2 * (*openLists[i].begin())->f_cost;
+                double fCheck = weight2 * (*openLists[0].begin())->f_cost;
+                std::cout << "f_check: "<< fCheck << std::endl;
                 if ((*openLists[i].begin())->f_cost > fCheck) {
                     i = 0;
                 }
+                std::cout << "i_after_check: "<< i << std::endl;
                 std::shared_ptr<Node> x = *openLists[i].begin();
                 openLists[i].erase(openLists[i].begin());
 
-                std::cout << "x_now: " << '(' << x->position[0] << ',' << x->position[1] << ',' << x->position[2] << ',' << x->h_cost << ')' << std::endl;
+                std::cout << "x_now in "<<i<<": " << '(' << x->position[0] << ',' << x->position[1] << ',' << x->position[2] << ',' << x->f_cost << ')' << std::endl;
                 if (x->position == goal->position && x->orientation== goal->orientation) {
                     std::cout << "beginToreconstruct" << std::endl;
                     reconstructPath(x);
@@ -395,8 +396,8 @@ public:
                 Resolution::Level res = heurs_map.at(i).first;
                 addToCloseList(x, res);
                 std::cout << "After expansion openList size: " << openLists[i].size() << std::endl;
-                std::cout << "open" << i << ':' << std::endl;
-                printOpen(i);
+                //std::cout << "open" << i << ':' << std::endl;
+                //printOpen(i);
             }
         }
         return checkImprove;
@@ -431,6 +432,7 @@ public:
             // Update nodes in INCONS
             for (const auto& node : INCONS) {
                 updateOpenList(0, node);  
+                //addToOpenList(0,node);
             }
             clearINCONS();
 
@@ -438,20 +440,24 @@ public:
             for (size_t i = 0; i < openLists[0].size(); ++i) {
                 auto& node = *std::next(openLists[0].begin(), i);
                 for (size_t j = 1; j < manager.countHeuristics(); ++j) {
-                    Resolution::Level res = heurs_map.at(j).first;
-                    if (res == node->res) {
-                        //updateOpenList(j, node);
-                        addToOpenList(j,node);
+                    Resolution::Level res = heurs_map.at(j).first; //resolution of j
+                    if (res >= node->res) {
+                        std::shared_ptr<Node> nodeCopy = std::make_shared<Node>(*node);
+                        nodeCopy->f_cost = key(*nodeCopy,j);
+                        updateOpenList(j,nodeCopy);
+                        //addToOpenList(j,nodeCopy);
                     }
                 }
             }
+            //printOpen(0);
+            //printOpen(1);
 
             clearAllClose();
 
             if (improvePath(startTime)) {
                 //reconstructPath(goal);
                 std::cout << "Path found!" << std::endl;
-                return;
+                //return;
             }
 
             weight1 -= weight1Step;

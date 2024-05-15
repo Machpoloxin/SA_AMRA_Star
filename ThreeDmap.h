@@ -276,6 +276,7 @@ public:
             return {};
         }
         int resFactor = resolutionScale * res;  
+        //std::cout<<"resFactor of "<<res<<": "<<resFactor<<std::endl;
         std::vector<std::pair<std::array<int, 3>,std::string>> expandableNodes;
         std::array<int, 3> map_size = {sizeX, sizeY, sizeZ};
         std::array<int, 3> directions = {{resFactor*0, resFactor*(-1), resFactor*(1)}};  // Only two directions, -1 and 1, for each dimension.
@@ -304,7 +305,7 @@ public:
                 }
             }
         }
-    
+    //std::cout<<expandableNodes.size()<<std::endl;
     return expandableNodes;
     }
     
