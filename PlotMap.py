@@ -12,23 +12,32 @@ def read_map_file(filename):
             parts = line.strip('()\n').split(', ')
             if len(parts) == 4:  
                 x, y, z, value = parts
-                if value == 'ob':  
+                if value != 'non':  
                     x_coords.append(int(x))
                     y_coords.append(int(y))
                     z_coords.append(int(z))
     return x_coords, y_coords, z_coords
 
 
-def plot_map(x_coords, y_coords, z_coords):
+def init_plot():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x_coords, y_coords, z_coords, c='r', marker='o')  #
     ax.set_xlabel('X Coordinate')
     ax.set_ylabel('Y Coordinate')
     ax.set_zlabel('Z Coordinate')
-    plt.title('3D Map of Obstacles')
-    plt.show()
+    plt.title('AMRA*_Search')
+    return fig, ax
 
+def update_plot(ax, x_coords, y_coords, z_coords, color='r', marker='o'):
+    ax.scatter(x_coords, y_coords, z_coords, c=color, marker=marker)
+    plt.draw()
+
+fig, ax = init_plot()
 
 x_coords, y_coords, z_coords = read_map_file('sparsemap.map')
-plot_map(x_coords, y_coords, z_coords)
+update_plot(ax, x_coords, y_coords, z_coords)
+x_coords, y_coords, z_coords = read_map_file('MySolutionPath.map')
+update_plot(ax, x_coords, y_coords, z_coords, color='b',marker='x')
+
+plt.show()
+

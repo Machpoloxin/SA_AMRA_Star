@@ -214,6 +214,9 @@ public:
         manager.registerHeuristic("Euclidean", std::make_unique<EuclideanDistance>());
         heurs_map.emplace_back(Resolution::HIGH, manager.countHeuristics() - 1);
 
+        manager.registerHeuristic("InadManhattan", std::make_unique<InadManhattanDistance>());
+        heurs_map.emplace_back(Resolution::MID, manager.countHeuristics() - 1);
+
         manager.registerHeuristic("Manhattan", std::make_unique<ManhattanDistance>());
         heurs_map.emplace_back(Resolution::MID, manager.countHeuristics() - 1);
 
@@ -364,12 +367,12 @@ public:
         bool checkImprove = false;
         std::cout << "size of Heuristics" << manager.countHeuristics() << std::endl;
 
-        for (size_t iter = 0; iter < manager.countHeuristics(); ++iter) {
-            while (!openLists[iter].empty()) {
-                int i = iter;
-                std::cout << "iter: " <<iter<< std::endl;
-                if (iter < manager.countHeuristics()){++i;}
-                std::cout << "i: "<< i << std::endl;
+        for (size_t i = 0; i < manager.countHeuristics(); ++i) {
+            while (!openLists[i].empty()) {
+                //int i = iter;
+                std::cout << "or_i: " <<i<< std::endl;
+                if (i < manager.countHeuristics()-1){++i;}
+                std::cout << "added_i: "<< i << std::endl;
                 double elapsedTime = getTime() - startTime;
                 std::cout << "elapsedTime:" << elapsedTime << std::endl;
                 if (elapsedTime >= timeLimit) {
@@ -463,12 +466,26 @@ public:
             weight1 -= weight1Step;
             weight2 -= weight2step;
     }
+
+    ThreeDMap Mysolution;
+    for( auto const &solution: solutionPath)
+    {
+        Mysolution.addPath(solution.position,"sol");
+    }
+    Mysolution.saveToFile("MySolutionPath.map");
+    ThreeDMap MyExplored;
+    for( auto const &explored : Explored)
+    {
+        MyExplored.addPath(explored->position,"exp");
+    }
+    MyExplored.saveToFile("MyExploredNodes.map");
     }
 };
 
 
 int main() 
 {
+
     
     std::array<int, 3> start = {1, 1, 0};
     std::array<double, 4> start_ori = {0.707, 0.707, 0, 0};

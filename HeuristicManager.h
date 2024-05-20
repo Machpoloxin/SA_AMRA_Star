@@ -138,6 +138,18 @@ public:
     }
 };
 
+class InadManhattanDistance : public Heuristic {
+public:
+    double calculate(const std::array<int, 3>& a, const std::array<int, 3>& b) const override {
+        int sum = 0;
+        for (int i = 0; i < 3; ++i) {
+            int diff = std::abs(a[i] - b[i]);
+            sum += diff;
+        }
+        return 10*sum;
+    }
+};
+
 
 class HeuristicManager {
 private:

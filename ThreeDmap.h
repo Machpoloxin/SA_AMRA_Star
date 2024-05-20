@@ -211,6 +211,21 @@ public:
         sizeZ = maxZ - minZ + 1;
     }
 
+    void addPath(std::array<int,3>position, const std::string& value)
+    {
+        std::string key = generateKey(position);
+        map[key] = value;
+        maxX = std::max(maxX, position[0]);
+        maxY = std::max(maxY, position[1]);
+        maxZ = std::max(maxZ, position[2]);
+        minX = std::min(minX, position[0]);
+        minY = std::min(minY, position[1]);
+        minZ = std::min(minZ, position[2]);
+        sizeX = maxX - minX + 1;
+        sizeY = maxY - minY + 1;
+        sizeZ = maxZ - minZ + 1;
+    }
+
     void removeMapValue(int x, int y, int z) 
     {
         std::string key = generateKey(x, y, z);
