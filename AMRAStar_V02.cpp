@@ -356,6 +356,7 @@ public:
                         }
                     }
                 }
+                addNodeToExplored(successor);
             }
         }
     }
@@ -486,14 +487,13 @@ public:
 int main() 
 {
 
-    
-    std::array<int, 3> start = {1, 1, 0};
+    std::array<int, 3> start = {12, 9, 7};
     std::array<double, 4> start_ori = {0.707, 0.707, 0, 0};
-    std::array<int, 3> goal = {9, 3, 6};
+    std::array<int, 3> goal = {40, 10, 8};
     std::array<double, 4> goal_ori = {0.707, 0, 0.707, 0};
     //std::cout << start[0];
 
-    AMRAstar amraStar(10, 10, "sparsemap.map", start, start_ori, goal, goal_ori, 1, 100);
+    AMRAstar amraStar(10, 10, "Testmap.map", start, start_ori, goal, goal_ori, 1, 100);
     amraStar.search();
     
     return 0;

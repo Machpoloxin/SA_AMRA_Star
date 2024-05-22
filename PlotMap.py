@@ -28,16 +28,18 @@ def init_plot():
     plt.title('AMRA*_Search')
     return fig, ax
 
-def update_plot(ax, x_coords, y_coords, z_coords, color='r', marker='o'):
-    ax.scatter(x_coords, y_coords, z_coords, c=color, marker=marker)
+def update_plot(ax, x_coords, y_coords, z_coords, color='r', marker='s',markersize=100):
+    ax.scatter(x_coords, y_coords, z_coords, c=color, marker=marker,s=markersize)
     plt.draw()
 
 fig, ax = init_plot()
 
-x_coords, y_coords, z_coords = read_map_file('sparsemap.map')
+x_coords, y_coords, z_coords = read_map_file('Testmap.map')
 update_plot(ax, x_coords, y_coords, z_coords)
+x_coords, y_coords, z_coords = read_map_file('MyExploredNodes.map')
+update_plot(ax, x_coords, y_coords, z_coords, color='g',marker='s',markersize=10)
 x_coords, y_coords, z_coords = read_map_file('MySolutionPath.map')
-update_plot(ax, x_coords, y_coords, z_coords, color='b',marker='x')
+update_plot(ax, x_coords, y_coords, z_coords, color='b',marker='x',markersize=30)
 
 plt.show()
 
