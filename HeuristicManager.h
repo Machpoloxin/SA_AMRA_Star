@@ -192,7 +192,7 @@ public:
         //{
         //    std::cout << heurist << std::endl;
         //}
-        for (int i = 0; i < countHeuristics();++i)
+        for (size_t i = 0; i < countHeuristics();++i)
         {
             std::cout << heuristicIndex[i] << std::endl;
         }

@@ -134,7 +134,7 @@ private:
     void addToCloseList(const std::shared_ptr<Node>& node, Resolution::Level res) {
         if (res != Resolution::Invalid) {
             int resLevel = static_cast<int>(res);
-            if (resLevel < closeList.size())
+            if (resLevel < static_cast<int>(closeList.size()))
             {
                 closeList[resLevel].push_back(node);
             }
@@ -263,7 +263,7 @@ public:
 
 
     void printOpen(int heuristicIndex) {
-        if (heuristicIndex < openLists.size()) {
+        if (heuristicIndex < static_cast<int>(openLists.size())) {
             std::cout << "Open List [" << heuristicIndex << "] Nodes:" << std::endl;
             for (const auto& node : openLists[heuristicIndex]) {
                 std::cout << '(' << node->position[0] << ',' << node->position[1] << ',' << node->position[2] << ',' << node->f_cost << ')';
@@ -281,7 +281,7 @@ public:
 
     void printClose(Resolution::Level res) {
         int resLevel = static_cast<int>(res);
-        if (resLevel < closeList.size()) {
+        if (resLevel < static_cast<int>(closeList.size())) {
             std::cout << "Close List [" << resLevel << "] Nodes:" << std::endl;
             for (const auto& node : closeList[resLevel]) {
                 std::cout << '(' << node->position[0] << ',' << node->position[1] << ',' << node->position[2] << ',' << node->f_cost << ')';
