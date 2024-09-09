@@ -5,6 +5,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <random>
 
 
 
@@ -89,6 +90,105 @@ public:
     bool operator==(const RotationQuaternion& q) const {
         return (std::fabs(w - q.w) < 1e-9 && std::fabs(x - q.x) < 1e-9 && std::fabs(y - q.y) < 1e-9 && std::fabs(z - q.z) < 1e-9) ||
                (std::fabs(w + q.w) < 1e-9 && std::fabs(x + q.x) < 1e-9 && std::fabs(y + q.y) < 1e-9 && std::fabs(z + q.z) < 1e-9);
+    }
+
+
+        // 封装函数1：生成 xy 平面上均匀分布的 k 个方向
+    static std::vector<RotationQuaternion> generateDirectionsInPlane(int k) {
+        std::vector<RotationQuaternion> directions;
+        double deltaTheta = 360.0 / k;  // 每个方向的角度间隔
+        for (int i = 0; i < k; ++i) {
+            double theta = i * deltaTheta * M_PI / 180.0;  // 将角度转换为弧度
+            // 在 xy 平面上，旋转绕 z 轴的四元数
+            RotationQuaternion direction(
+                std::cos(theta / 2),  // w 分量
+                0.0,                  // x 分量（xy 平面内不涉及绕 x 轴旋转）
+                0.0,                  // y 分量（xy 平面内不涉及绕 y 轴旋转）
+                std::sin(theta / 2)   // z 分量（绕 z 轴旋转）
+            );
+            direction.normalize();
+            directions.push_back(direction);
+        }
+        return directions;
+    }
+
+    // 封装函数2：根据角度围绕 y 轴旋转平面
+    static RotationQuaternion rotatePlaneAroundYAxis(double angle) {
+        double radians = angle * M_PI / 180.0;  // 将角度转换为弧度
+        return RotationQuaternion(
+            std::cos(radians / 2),  // w 分量
+            0.0,                    // x 分量（绕 y 轴旋转不涉及 x 分量）
+            std::sin(radians / 2),  // y 分量（绕 y 轴的旋转）
+            0.0                     // z 分量
+        );
+    }
+
+    // 封装函数3：扩展函数，结合平面旋转生成方向
+    static std::vector<RotationQuaternion> expandDirections(int k, int m) {
+        std::vector<RotationQuaternion> expandedDirections;
+
+        // 生成初始平面上的方向
+        std::vector<RotationQuaternion> initialDirections = generateDirectionsInPlane(k);
+
+        // 生成 m 个旋转平面
+        double deltaPhi = 90.0 / m;  // 每个平面之间的角度间隔
+        for (int i = 0; i < m; ++i) {
+            double phi = i * deltaPhi;  // 每次绕 y 轴旋转的角度
+            RotationQuaternion planeRotation = rotatePlaneAroundYAxis(phi);
+
+            // 对每个方向应用平面旋转
+            for (const auto& dir : initialDirections) {
+                RotationQuaternion rotatedDirection = planeRotation * dir;
+                rotatedDirection.normalize();
+                expandedDirections.push_back(rotatedDirection);
+            }
+        }
+
+        return expandedDirections;
+    }
+
+    static std::vector<std::array<double, 3>> fibonacciSphereSampling(int numPoints) {
+        std::vector<std::array<double, 3>> points;
+        double phi = M_PI * (3.0 - std::sqrt(5.0));  // 黄金角度
+
+        for (int i = 0; i < numPoints; ++i) {
+            double y = 1 - (i / (double)(numPoints - 1)) * 2;  // y 坐标在 [-1, 1] 之间均匀分布
+            double radius = std::sqrt(1 - y * y);  // 根据 y 计算半径
+            double theta = phi * i;  // 计算方位角 theta
+
+            double x = std::cos(theta) * radius;
+            double z = std::sin(theta) * radius;
+
+            // 将点存入结果集
+            points.push_back({x, y, z});
+        }
+
+        return points;
+    }
+
+
+    static std::vector<RotationQuaternion> generateQuaternions(int numPoints, double minAngle, double maxAngle) {
+        std::vector<RotationQuaternion> quaternions;
+        std::vector<std::array<double, 3>> axes = fibonacciSphereSampling(numPoints);  // 生成旋转轴
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> angleDist(minAngle, maxAngle);  // 生成随机角度
+
+        for (const auto& axis : axes) {
+            double theta = angleDist(gen);  // 随机选择旋转角度
+            double halfTheta = theta / 2.0;
+
+            double w = std::cos(halfTheta);  // 四元数的 w 分量
+            double x = axis[0] * std::sin(halfTheta);  // 四元数的 x 分量
+            double y = axis[1] * std::sin(halfTheta);  // 四元数的 y 分量
+            double z = axis[2] * std::sin(halfTheta);  // 四元数的 z 分量
+
+            RotationQuaternion q(w, x, y, z);
+            q.normalize();  // 归一化四元数
+            quaternions.push_back(q);  // 将生成的四元数存入结果集中
+        }
+
+        return quaternions;
     }
 
     // Print the quaternion

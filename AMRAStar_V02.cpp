@@ -241,23 +241,36 @@ public:
         return node.g_cost +  weight1*heuristic->calculate(node.position, goal->position);
     }
 
-    RotationQuaternion setOrientation(std::shared_ptr<Node> node, double distanceToGoal)
+    RotationQuaternion setOrientation(std::shared_ptr<Node> node, double distanceToGoal, RotationQuaternion newOrientation)
     {
         double ratio = distanceToGoal / totalDistance;
         double t;
         if (ratio <= 0.1) {
-            return goal->orientation;
-        } else if (ratio <= 0.3) {
-            t = 0.7;
-        } else if (ratio <= 0.5) {
-            t = 0.5;
-        } else if (ratio <= 0.7){
-            t = 0.3;
+            return goal->orientation; 
         }else {
             t = 0.1;
         }
-        return RotationQuaternion::slerp(node->orientation, goal->orientation, t);
+        //return RotationQuaternion::slerp(node->orientation, goal->orientation, t);
+        return newOrientation;
         
+    }
+
+    std::vector<RotationQuaternion> setOrientations(double distanceToGoal){
+        int numPoints = 100; double minAngle = -M_PI; double maxAngle = M_PI;
+        double ratio = distanceToGoal / totalDistance;
+        double t;
+        if (ratio <= 0.1){
+            t = 0.5;
+        } else if (ratio <= 0.3){
+            t = 0.6;
+        } else if(ratio <= 0.5){
+            t = 0.8;
+        } else if(ratio <= 0.7){
+            t = 0.7;
+        } else {
+            t = 1;
+        }
+        return RotationQuaternion::generateQuaternions(static_cast<int>(numPoints), t*minAngle, t*maxAngle);
     }
     
 
@@ -298,65 +311,83 @@ public:
     }
 
     void expand(std::shared_ptr<Node> node, int heuristicIndex) {
+
         Resolution::Level res = heurs_map.at(heuristicIndex).first;
         std::vector<std::pair<std::array<int, 3>, std::string>> successors;
-
-        if (node->position == goal->position && node->orientation == goal->orientation)
+        if (node->position == goal->position && (RotationQuaternion::distance(node->orientation,goal->orientation)<0.52)){
+            std::cout<<"Goal found!!!"<<std::endl;
             return;
-
+        }
         successors = grid.getSuccs(node->position, res);
+        //int k = 8;
+        //int m = 2;
+        //std::vector<RotationQuaternion> newOrientations = RotationQuaternion::expandDirections(k, m);
+        //std::cout << "Total directions generated: " << newOrientations.size() << std::endl;
+        //int numPoints = 20; double minAngle = -M_PI; double maxAngle = M_PI;
+        // std::vector<RotationQuaternion> newOrientations = setOrientation();
+        // std::cout << "Total directions generated: " << newOrientations.size() << std::endl;
+        // for (const auto& orientation : newOrientations) {
+        //     orientation.print();
+        // }
+
         
-
-
         for (const auto& successorPosition : successors) {
-            std::shared_ptr<Node> successor = std::make_shared<Node>(successorPosition.first, node->orientation, node->res, 0.0,0.0,0.0,nullptr);
-            successor->parent = node;
             const Heuristic* heuristic = manager.getHeuristicByIndex(0);
             double h_cost_new = heuristic->calculate(successorPosition.first, goal->position);
-            successor->h_cost = h_cost_new;
-            successor->orientation = setOrientation(node,h_cost_new);
-            double path_cost = heuristic->calculate(node->position, successorPosition.first);
-            double g_cost_new = node->g_cost + path_cost + RotationQuaternion::distance(node->orientation,successor->orientation)*path_cost/3.14;
-            successor->g_cost = g_cost_new;
-            successor->f_cost = successor->g_cost + weight1 * successor->h_cost;
+            std::vector<RotationQuaternion> newOrientations = setOrientations(h_cost_new);
+            //std::cout << "Total directions generated: " << newOrientations.size() << std::endl;
+            for (const auto& newOrientation : newOrientations) {
+                std::shared_ptr<Node> successor = std::make_shared<Node>(successorPosition.first, node->orientation, node->res, 0.0,0.0,0.0,nullptr);
+                successor->parent = node;
+                // const Heuristic* heuristic = manager.getHeuristicByIndex(0);
+                // double h_cost_new = heuristic->calculate(successorPosition.first, goal->position);
+                successor->h_cost = h_cost_new;
+                //successor->orientation = node->orientation * setOrientation(node,h_cost_new, newOrientation);
+                //successor->orientation = newOrientation;
+                successor->orientation = node->orientation * newOrientation;
+                double path_cost = heuristic->calculate(node->position, successorPosition.first);
+                double g_cost_new = node->g_cost + path_cost + RotationQuaternion::distance(node->orientation,successor->orientation)*path_cost;
+                successor->g_cost = g_cost_new;
+                successor->f_cost = successor->g_cost + weight1 * successor->h_cost;
 
-            if (res == Resolution::ANCHOR)
-            {
-                auto it = whereInCloseList(successor,res);
-                if (it!= nullptr)
+                if (res == Resolution::ANCHOR)
                 {
-                    if (it->g_cost <= successor->g_cost)
+                    auto it = whereInCloseList(successor,res);
+                    if (it!= nullptr)
                     {
-                        successor->g_cost = it->g_cost;
-                        successor->parent = it->parent;
+                        if (it->g_cost <= successor->g_cost)
+                        {
+                            successor->g_cost = it->g_cost;
+                            successor->parent = it->parent;
+                            addToINCONS(successor);
+                        }
                         addToINCONS(successor);
                     }
-                    addToINCONS(successor);
                 }
-            }
-            else
-            {
-                updateOpenList(0,successor);          
-                for (size_t j = 1; j < manager.countHeuristics(); ++j) 
+                else
                 {
-                    std::shared_ptr<Node> nodeCopy = successor;
-                    Resolution::Level lres = heurs_map.at(j).first;
-                    if (lres < nodeCopy->res)
+                    updateOpenList(0,successor);          
+                    for (size_t j = 1; j < manager.countHeuristics(); ++j) 
                     {
-                        continue;
-                    }
-                    if (!whereInCloseList(nodeCopy,lres))
-                    {
-                        double newKey = key(*nodeCopy, j);
-                        if(newKey <= weight2*nodeCopy->f_cost)
+                        std::shared_ptr<Node> nodeCopy = successor;
+                        Resolution::Level lres = heurs_map.at(j).first;
+                        if (lres < nodeCopy->res)
                         {
-                            nodeCopy->f_cost = newKey;
-                            updateOpenList(j,nodeCopy);
-                            //addToOpenList(j,successor);
+                            continue;
+                        }
+                        if (!whereInCloseList(nodeCopy,lres))
+                        {
+                            double newKey = key(*nodeCopy, j);
+                            if(newKey <= weight2*nodeCopy->f_cost)
+                            {
+                                nodeCopy->f_cost = newKey;
+                                updateOpenList(j,nodeCopy);
+                                //addToOpenList(j,successor);
+                            }
                         }
                     }
+                    addNodeToExplored(successor);
                 }
-                addNodeToExplored(successor);
             }
         }
     }
@@ -387,9 +418,10 @@ public:
                 std::cout << "i_after_check: "<< i << std::endl;
                 std::shared_ptr<Node> x = *openLists[i].begin();
                 openLists[i].erase(openLists[i].begin());
-
-                std::cout << "x_now in "<<i<<": " << '(' << x->position[0] << ',' << x->position[1] << ',' << x->position[2] << ',' << x->f_cost << ')' << std::endl;
-                if (x->position == goal->position && x->orientation== goal->orientation) {
+                double angleDistance = RotationQuaternion::distance(x->orientation,goal->orientation);
+                std::cout << "x_now in "<<i<<": " << '(' << x->position[0] << ',' << x->position[1] << ',' << x->position[2] << ',' << x->f_cost << ')'<<" Angle Distance: "<<angleDistance << std::endl;
+                x->orientation.print();
+                if (x->position == goal->position && (RotationQuaternion::distance(x->orientation,goal->orientation)<1)) {
                     std::cout << "beginToreconstruct" << std::endl;
                     reconstructPath(x);
                     checkImprove = true;
@@ -464,6 +496,11 @@ public:
                 //return;
             }
 
+            if (double elapsedTime = getTime() - startTime >= timeLimit){
+                std::cout<<"Out of time!!!"<<std::endl;
+                return;
+            }
+
             weight1 -= weight1Step;
             weight2 -= weight2step;
     }
@@ -493,7 +530,7 @@ int main()
     std::array<double, 4> goal_ori = {0.707, 0, 0.707, 0};
     //std::cout << start[0];
 
-    AMRAstar amraStar(10, 10, "Testmap.map", start, start_ori, goal, goal_ori, 1, 100);
+    AMRAstar amraStar(10, 10, "Testmap.map", start, start_ori, goal, goal_ori, 1, 50000);
     amraStar.search();
     
     return 0;
